@@ -280,11 +280,11 @@ body{display:flex;align-items:flex-start;justify-content:center;padding:0;}
     </div>
 
     <div class="tab-bar">
-      <button class="tab-btn" id="tb-chat" onclick="switchTab('chat')">
+      <button class="tab-btn" id="tb-chat">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
         Чат
       </button>
-      <button class="tab-btn active" id="tb-board" onclick="switchTab('board')">
+      <button class="tab-btn active" id="tb-board">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
         Доска
       </button>
@@ -293,6 +293,24 @@ body{display:flex;align-items:flex-start;justify-content:center;padding:0;}
 </div>
 <div id="mc"></div>
 
+<script>
+window._switchTab=function(tab){
+  if(window.innerWidth>=900) return;
+  var isChat = tab==='chat';
+  var tc=document.getElementById('tab-chat'), tb=document.getElementById('tab-board');
+  var bc=document.getElementById('tb-chat'), bb=document.getElementById('tb-board');
+  if(!tc||!tb) return;
+  tc.style.setProperty('display', isChat?'flex':'none','important');
+  tb.style.setProperty('display', isChat?'none':'flex','important');
+  bc.classList.toggle('active',isChat);
+  bb.classList.toggle('active',!isChat);
+};
+document.addEventListener('DOMContentLoaded',function(){
+  var bc=document.getElementById('tb-chat'), bb=document.getElementById('tb-board');
+  if(bc) bc.addEventListener('click',function(){window._switchTab('chat');});
+  if(bb) bb.addEventListener('click',function(){window._switchTab('board');});
+});
+</script>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
@@ -320,14 +338,7 @@ function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 function wsjf(t){ return Math.round(((t.value+t.urgency+t.risk)/t.size)*10)/10; }
 function wc(s){ return s>=3?'wp-h':s>=1.5?'wp-m':'wp-l'; }
 
-function switchTab(tab){
-  if(window.innerWidth>=900) return;
-  const isChat = tab==='chat';
-  $('#tab-chat').style.setProperty('display', isChat?'flex':'none','important');
-  $('#tab-board').style.setProperty('display', isChat?'none':'flex','important');
-  $('#tb-chat').classList.toggle('active',isChat);
-  $('#tb-board').classList.toggle('active',!isChat);
-}
+function switchTab(tab){ window._switchTab(tab); }
 
 function toast(msg){
   const e = $('.toast'); if(e) e.remove();
