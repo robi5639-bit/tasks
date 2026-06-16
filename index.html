@@ -78,6 +78,13 @@ html,body{height:100%;overflow:hidden;background:#020308;font-family:Inter,syste
 #msgs::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:99px;}
 .msg{max-width:92%;font-size:12px;line-height:1.55;padding:9px 12px;border-radius:14px;animation:fadeUp .2s ease;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes taskPulse{
+  0%{box-shadow:0 0 0 0 rgba(255,122,47,.6);border-color:rgba(255,122,47,.6);}
+  40%{box-shadow:0 0 0 6px rgba(255,122,47,.15);border-color:rgba(255,122,47,.8);}
+  70%{box-shadow:0 0 0 10px rgba(255,122,47,.04);border-color:rgba(255,122,47,.4);}
+  100%{box-shadow:0 0 0 0 rgba(255,122,47,0);border-color:rgba(255,255,255,.08);}
+}
+.card.new-task{animation:fadeUp .25s ease,taskPulse 1.8s ease 0.1s 2;}
 .msg.user{align-self:flex-end;color:#fff;background:linear-gradient(135deg,rgba(255,122,47,.25),rgba(138,92,255,.15));border:1px solid rgba(255,122,47,.2);border-bottom-right-radius:4px;}
 .msg.ai{align-self:flex-start;color:rgba(255,255,255,.78);background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.07);border-bottom-left-radius:4px;}
 .msg.ai.clarify{background:rgba(119,212,255,.08);border-color:rgba(119,212,255,.2);color:rgba(119,212,255,.9);}
@@ -195,8 +202,8 @@ html,body{height:100%;overflow:hidden;background:#020308;font-family:Inter,syste
 .wsjf-up,.wsjf-dn{flex:1;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--soft);font-size:9px;background:transparent;border:none;transition:all .1s;line-height:1;}
 .wsjf-up:hover,.wsjf-dn:hover{background:rgba(255,122,47,.15);color:var(--orange2);}
 .wsjf-up{border-bottom:1px solid var(--line2);}
-.mscore{font-size:13px;color:var(--muted);margin-top:10px;padding:8px 10px;background:rgba(255,122,47,.05);border:1px solid rgba(255,122,47,.12);border-radius:8px;}
-.mscore span{font-weight:700;color:var(--orange2);}
+.mscore{font-size:13px;color:var(--muted);margin-top:10px;padding:8px 10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:8px;display:flex;align-items:center;gap:8px;}
+.mscore .wsjf-pill{font-size:13px;font-weight:700;padding:3px 12px;}
 
 .modal-actions{padding:14px 24px;border-top:1px solid rgba(255,255,255,.07);display:flex;gap:8px;justify-content:flex-end;}
 .mbtn{padding:8px 18px;border-radius:999px;border:1px solid var(--line2);background:rgba(255,255,255,.05);cursor:pointer;font:600 12px Inter;color:var(--muted);transition:all .15s;}
@@ -397,7 +404,37 @@ const $=s=>document.querySelector(s);
 const $$=s=>document.querySelectorAll(s);
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function wsjf(t){return Math.round(((t.value+t.urgency+t.risk)/t.size)*10)/10;}
-function wc(s){return s>=3?'wp-h':s>=1.5?'wp-m':'wp-l';}
+function wsjfStyle(score){
+  const s=Math.min(30,Math.max(0,score));
+  const t=s/30;
+  let r,g,b,tr,tg,tb,alpha,ba;
+  if(t<0.15){
+    const p=t/0.15;
+    r=Math.round(220-p*10);g=Math.round(218-p*10);b=Math.round(210-p*10);
+    tr=80;tg=79;tb=76;alpha=0.55+p*0.1;ba=0.5;
+  }else if(t<0.35){
+    const p=(t-0.15)/0.2;
+    r=Math.round(178-p*30);g=Math.round(215-p*20);b=Math.round(240-p*10);
+    tr=Math.round(24+p*10);tg=Math.round(90+p*15);tb=Math.round(160+p*5);
+    alpha=0.55+p*0.15;ba=0.55+p*0.1;
+  }else if(t<0.55){
+    const p=(t-0.35)/0.2;
+    r=Math.round(180-p*30);g=Math.round(235-p*15);b=Math.round(160-p*30);
+    tr=Math.round(40+p*20);tg=Math.round(100+p*10);tb=50;
+    alpha=0.55+p*0.15;ba=0.55+p*0.1;
+  }else if(t<0.78){
+    const p=(t-0.55)/0.23;
+    r=Math.round(245-p*10);g=Math.round(200-p*60);b=Math.round(80-p*60);
+    tr=Math.round(133+p*20);tg=Math.round(80-p*20);tb=11;
+    alpha=0.55+p*0.2;ba=0.6+p*0.1;
+  }else{
+    const p=(t-0.78)/0.22;
+    r=Math.round(235-p*15);g=Math.round(100-p*40);b=Math.round(80-p*40);
+    tr=Math.round(153+p*20);tg=Math.round(27-p*10);tb=27;
+    alpha=0.65+p*0.2;ba=0.65+p*0.15;
+  }
+  return `background:rgba(${r},${g},${b},${alpha.toFixed(2)});color:rgb(${tr},${tg},${tb});border:1px solid rgba(${r},${g},${b},${ba.toFixed(2)})`;
+}
 
 function toast(msg){
   const e=$('.toast');if(e)e.remove();
@@ -537,7 +574,7 @@ function render(){
         const pct=Math.round(done/cl.length*100);
         checkHtml=`<div style="margin-bottom:7px;"><div style="font-size:10px;color:var(--soft);margin-bottom:3px;">${done}/${cl.length}</div><div style="height:2px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:var(--green);border-radius:99px;"></div></div></div>`;
       }
-      d.innerHTML=`<div class="card-title">${esc(t.title)}</div>${t.desc?`<div class="card-desc">${esc(t.desc)}</div>`:''}${checkHtml}<div class="card-footer"><span class="wsjf-pill ${wc(s)}">WSJF ${s}</span><span class="card-meta">V${t.value} U${t.urgency} R${t.risk} S${t.size}</span></div>`;
+      d.innerHTML=`<div class="card-title">${esc(t.title)}</div>${t.desc?`<div class="card-desc">${esc(t.desc)}</div>`:''}${checkHtml}<div class="card-footer"><span class="wsjf-pill" style="${wsjfStyle(s)}">WSJF ${s}</span><span class="card-meta">V${t.value} U${t.urgency} R${t.risk} S${t.size}</span></div>`;
       d.addEventListener('dragstart',e=>{dragId=t.fireId||t.id;setTimeout(()=>d.classList.add('dragging'),0);e.dataTransfer.effectAllowed='move';});
       d.addEventListener('dragend',()=>{d.classList.remove('dragging');dragId=null;$$('.col-cards').forEach(c=>c.classList.remove('drag-over'));});
       d.addEventListener('click',()=>openModal(t.fireId||t.id));
@@ -609,10 +646,22 @@ async function send(){
     let parsed;
     try{parsed=JSON.parse(raw.replace(/```json|```/g,'').trim());}
     catch(e){parsed={action:'message',message:raw};}
+function highlightNewTask(taskId){
+  setTimeout(()=>{
+    const card=document.querySelector(`.card[data-id="${taskId}"]`);
+    if(!card)return;
+    card.classList.add('new-task');
+    card.scrollIntoView({behavior:'smooth',block:'center'});
+    setTimeout(()=>card.classList.remove('new-task'),4000);
+  },100);
+}
+
     if(parsed.action==='add_task'){
       const t={id:Date.now().toString(),title:parsed.title,desc:parsed.desc||'',value:Math.min(10,Math.max(1,parsed.value||5)),urgency:Math.min(10,Math.max(1,parsed.urgency||5)),risk:Math.min(10,Math.max(1,parsed.risk||5)),size:Math.min(10,Math.max(1,parsed.size||3)),status:'todo',checklist:[],createdAt:Date.now()};
       tasks.push(t);render();
+      highlightNewTask(t.id);
       await saveTask(t);
+      if(t.fireId) highlightNewTask(t.fireId);
       addMsg(`«${t.title}» — WSJF ${wsjf(t)}`,'ai','added');
       chatHistory.push({role:'assistant',content:raw});
       toast('Задача добавлена');
@@ -690,7 +739,7 @@ function openModal(id){
                 </div>
               </div>`).join('')}
             </div>
-            <div class="mscore">WSJF: <span id="ms">${s}</span></div>
+            <div class="mscore"><span style="color:var(--soft);font-size:12px;">Итог:</span> <span id="ms" style="${wsjfStyle(s)}" class="wsjf-pill">${s}</span></div>
           </div>
         </div>
       </div>
@@ -711,7 +760,8 @@ function openModal(id){
     // WSJF score update
     function updScore(){
       const v=Math.min(10,Math.max(1,+$('#m-v').value||1)),u=Math.min(10,Math.max(1,+$('#m-u').value||1)),r=Math.min(10,Math.max(1,+$('#m-r').value||1)),ss=Math.min(10,Math.max(1,+$('#m-s').value||1));
-      $('#ms').textContent=Math.round(((v+u+r)/ss)*10)/10;
+      const sc=Math.round(((v+u+r)/ss)*10)/10;
+      const ms=$('#ms');if(ms){ms.textContent=sc;ms.setAttribute('style',wsjfStyle(sc));}
     }
     ['m-v','m-u','m-r','m-s'].forEach(i=>$('#'+i).oninput=updScore);
 
