@@ -208,6 +208,32 @@ html,body{height:100%;overflow:hidden;background:#020308;font-family:Inter,syste
 
 .toast{position:fixed;bottom:20px;right:20px;background:linear-gradient(135deg,rgba(255,122,47,.18),rgba(255,255,255,.07));border:1px solid rgba(255,122,47,.28);border-radius:12px;padding:10px 16px;font-size:12px;font-weight:600;color:#ffb781;backdrop-filter:blur(20px);z-index:200;animation:fadeUp .2s ease;}
 
+/* WSJF TUTORIAL MODAL */
+.tutorial-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:150;backdrop-filter:blur(4px);padding:16px;animation:fadeUp .15s ease;}
+.tutorial-modal{background:#131520;border:1px solid rgba(255,255,255,.1);border-radius:18px;width:100%;max-width:700px;max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.6);}
+.tutorial-modal::-webkit-scrollbar{width:4px;}
+.tutorial-modal::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:99px;}
+.tutorial-header{padding:20px 24px 16px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:space-between;}
+.tutorial-header h2{font-size:17px;font-weight:700;letter-spacing:-.02em;}
+.tutorial-header .sub{font-size:12px;color:var(--soft);margin-top:2px;}
+.tutorial-body{padding:16px 24px 24px;}
+.wsjf-criteria{display:flex;flex-direction:column;gap:16px;}
+.criterion{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;}
+.criterion-head{padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.07);}
+.criterion-num{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:12px;font-weight:700;flex-shrink:0;}
+.cn-orange{background:rgba(255,122,47,.15);color:var(--orange2);}
+.cn-cyan{background:rgba(119,212,255,.12);color:var(--cyan);}
+.cn-violet{background:rgba(138,92,255,.12);color:var(--violet);}
+.cn-green{background:rgba(112,224,167,.12);color:var(--green);}
+.criterion-title{font-size:13px;font-weight:600;color:var(--text);}
+.criterion-body{display:grid;grid-template-columns:1fr 1fr;gap:0;}
+.criterion-questions{padding:12px 16px;border-right:1px solid rgba(255,255,255,.07);font-size:11px;color:var(--muted);line-height:1.7;}
+.criterion-scale{padding:12px 16px;font-size:11px;color:var(--muted);line-height:1.7;}
+.scale-item{display:flex;gap:6px;margin-bottom:4px;}
+.scale-num{color:var(--orange2);font-weight:600;min-width:14px;}
+.patterns-note{margin-top:16px;padding:12px 16px;background:rgba(112,224,167,.06);border:1px solid rgba(112,224,167,.15);border-radius:10px;font-size:11px;color:rgba(112,224,167,.8);line-height:1.6;}
+@media(max-width:600px){.criterion-body{grid-template-columns:1fr;}.criterion-questions{border-right:none;border-bottom:1px solid rgba(255,255,255,.07);}}
+
 /* MOBILE */
 .tab-bar{display:none;}
 @media(max-width:899px){
@@ -272,6 +298,7 @@ html,body{height:100%;overflow:hidden;background:#020308;font-family:Inter,syste
       <div class="top-right">
         <div class="user-badge"><img class="user-avatar" id="user-avatar" src="" alt=""><span class="user-name" id="user-name"></span></div>
         <span class="top-badge" id="total-badge">0 задач</span>
+        <button class="btn-sm" id="wsjf-help-btn" title="WSJF туториал">⚖️ WSJF</button>
         <button class="btn-sm" id="logout-btn">Выйти</button>
       </div>
     </div>
@@ -390,14 +417,105 @@ async function loadTasks(){
   }catch(e){console.error(e);}
 }
 
-async function saveTask(t){
+async function saveTask(t, prevWsjf){
   if(!currentUser)return;
   const data={uid:currentUser.uid,title:t.title,desc:t.desc||'',value:t.value,urgency:t.urgency,risk:t.risk,size:t.size,status:t.status,checklist:t.checklist||[],createdAt:t.createdAt||Date.now()};
-  if(t.fireId){await updateDoc(doc(db,'tasks',t.fireId),data);}
+  if(t.fireId){
+    // If WSJF changed, save pattern
+    if(prevWsjf && (prevWsjf.value!==t.value||prevWsjf.urgency!==t.urgency||prevWsjf.risk!==t.risk||prevWsjf.size!==t.size)){
+      const pattern={uid:currentUser.uid,title:t.title,ai:{v:prevWsjf.value,u:prevWsjf.urgency,r:prevWsjf.risk,s:prevWsjf.size},user:{v:t.value,u:t.urgency,r:t.risk,s:t.size},ts:Date.now()};
+      addDoc(collection(db,'wsjf_patterns'),pattern).catch(()=>{});
+    }
+    await updateDoc(doc(db,'tasks',t.fireId),data);
+  }
   else{const ref=await addDoc(collection(db,'tasks'),data);t.fireId=ref.id;}
 }
 
+async function loadPatterns(){
+  if(!currentUser)return[];
+  try{
+    const q=query(collection(db,'wsjf_patterns'),where('uid','==',currentUser.uid));
+    const snap=await getDocs(q);
+    return snap.docs.map(d=>d.data()).slice(-10);// last 10 patterns
+  }catch(e){return[];}
+}
+
 async function deleteTask(t){if(t.fireId)await deleteDoc(doc(db,'tasks',t.fireId));}
+
+function openTutorial(){
+  const tb=document.getElementById('tutorial-bg');
+  if(tb){tb.remove();return;}
+  const div=document.createElement('div');
+  div.id='tutorial-bg';
+  div.className='tutorial-bg';
+  div.innerHTML=`<div class="tutorial-modal">
+    <div class="tutorial-header">
+      <div><h2>⚖️ WSJF — как выставлять приоритеты</h2><div class="sub">Weighted Shortest Job First — адаптированный для жизни</div></div>
+      <button class="modal-close" id="tut-close">×</button>
+    </div>
+    <div class="tutorial-body">
+      <div class="wsjf-criteria">
+        <div class="criterion">
+          <div class="criterion-head"><div class="criterion-num cn-orange">V</div><div class="criterion-title">Польза / Важность (Value)</div></div>
+          <div class="criterion-body">
+            <div class="criterion-questions">❓ Улучшит ли задача мою жизнь, здоровье, отношения, быт?<br>❓ Ощущу ли я разницу, если это будет сделано?</div>
+            <div class="criterion-scale">
+              <div class="scale-item"><span class="scale-num">10</span><span>Существенно улучшает жизнь (устранение хронической боли)</span></div>
+              <div class="scale-item"><span class="scale-num">7</span><span>Улучшает комфорт или даёт ощущение порядка</span></div>
+              <div class="scale-item"><span class="scale-num">5</span><span>Непрямой эффект, но заметно</span></div>
+              <div class="scale-item"><span class="scale-num">3</span><span>Почти не ощущается</span></div>
+              <div class="scale-item"><span class="scale-num">1</span><span>Мелочь, результат неважен</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="criterion">
+          <div class="criterion-head"><div class="criterion-num cn-cyan">U</div><div class="criterion-title">Срочность (Time Criticality)</div></div>
+          <div class="criterion-body">
+            <div class="criterion-questions">❓ Станет ли хуже, если отложу?<br>❓ Есть ли привязка ко времени?<br>❓ Пропущу ли шанс?</div>
+            <div class="criterion-scale">
+              <div class="scale-item"><span class="scale-num">10</span><span>Срочно: есть дедлайн или угроза (штраф, болезнь)</span></div>
+              <div class="scale-item"><span class="scale-num">7</span><span>Желательно в ближайшие дни</span></div>
+              <div class="scale-item"><span class="scale-num">5</span><span>Средняя срочность</span></div>
+              <div class="scale-item"><span class="scale-num">3</span><span>Можно сделать позже, ничего страшного</span></div>
+              <div class="scale-item"><span class="scale-num">1</span><span>Нет срочности вообще</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="criterion">
+          <div class="criterion-head"><div class="criterion-num cn-violet">R</div><div class="criterion-title">Риск / Возможность (RR/OE)</div></div>
+          <div class="criterion-body">
+            <div class="criterion-questions">❓ Предотвращает ли проблему в будущем?<br>❓ Открывает ли новую возможность?<br>❓ Уменьшает ли тревожность?</div>
+            <div class="criterion-scale">
+              <div class="scale-item"><span class="scale-num">10</span><span>Устраняет постоянную проблему (смена пароля = безопасность)</span></div>
+              <div class="scale-item"><span class="scale-num">7</span><span>Профилактика или небольшие возможности</span></div>
+              <div class="scale-item"><span class="scale-num">5</span><span>Сомнительный эффект</span></div>
+              <div class="scale-item"><span class="scale-num">3</span><span>Слабая польза</span></div>
+              <div class="scale-item"><span class="scale-num">1</span><span>Ничего не изменится</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="criterion">
+          <div class="criterion-head"><div class="criterion-num cn-green">S</div><div class="criterion-title">Размер задачи (Job Size)</div></div>
+          <div class="criterion-body">
+            <div class="criterion-questions">❓ Сколько времени это займёт?<br>❓ Насколько энергозатратно?<br>❓ Нужны усилие/концентрация/поездки?</div>
+            <div class="criterion-scale">
+              <div class="scale-item"><span class="scale-num">1</span><span>До 15 мин (легко и быстро)</span></div>
+              <div class="scale-item"><span class="scale-num">2</span><span>До 1 часа</span></div>
+              <div class="scale-item"><span class="scale-num">3</span><span>Несколько часов в один день</span></div>
+              <div class="scale-item"><span class="scale-num">5</span><span>Займёт часть дня</span></div>
+              <div class="scale-item"><span class="scale-num">7</span><span>Несколько дней по 1–2 часа</span></div>
+              <div class="scale-item"><span class="scale-num">10</span><span>Много дней или большие ресурсы</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="patterns-note">💡 <strong>Умное обучение:</strong> когда ты меняешь WSJF оценки в карточке — система запоминает твою логику. Со временем Claude будет точнее попадать в твои предпочтения с первого раза.</div>
+    </div>
+  </div>`;
+  document.body.appendChild(div);
+  div.addEventListener('click',e=>{if(e.target===div)div.remove();});
+  div.querySelector('#tut-close').onclick=()=>div.remove();
+}
 
 function render(){
   const cols={todo:[],progress:[],done:[]};
@@ -456,9 +574,14 @@ function addMsg(text,role,type=''){
 }
 
 async function callClaude(messages){
+  const patterns=await loadPatterns();
+  let patternContext='';
+  if(patterns.length>0){
+    patternContext='\n\nПаттерны пользователя (его правки твоих оценок):\n'+patterns.map(p=>`- "${p.title}": ты поставил V${p.ai.v}U${p.ai.u}R${p.ai.r}S${p.ai.s}, пользователь изменил на V${p.user.v}U${p.user.u}R${p.user.r}S${p.user.s}`).join('\n')+'\nУчитывай эти паттерны при выставлении новых оценок.';
+  }
   const system=`Ты помощник для личного таск-менеджера. Помогаешь добавлять задачи и выставлять WSJF приоритет.
 WSJF: value(1-10) польза для жизни, urgency(1-10) срочность, risk(1-10) риск/возможность, size(1-10) размер(1=15мин,2=1час,3=неск.часов,5=день,7=неск.дней,10=много дней).
-Если задача понятна — сразу добавляй. Если слишком коротко — задай 1-2 вопроса.
+Если задача понятна — сразу добавляй. Если слишком коротко — задай 1-2 вопроса.${patternContext}
 Отвечай СТРОГО JSON без markdown:
 Добавить: {"action":"add_task","title":"...","desc":"...","value":N,"urgency":N,"risk":N,"size":N}
 Уточнить: {"action":"clarify","message":"..."}
@@ -507,6 +630,8 @@ async function send(){
 function openModal(id){
   const t=tasks.find(x=>(x.fireId||x.id)===id);if(!t)return;
   if(!t.checklist)t.checklist=[];
+  // Snapshot original WSJF before editing
+  const prevWsjf={value:t.value,urgency:t.urgency,risk:t.risk,size:t.size};
   const mc=$('#mc');
 
   function renderModal(){
@@ -617,7 +742,7 @@ function openModal(id){
       t.urgency=Math.min(10,Math.max(1,+$('#m-u').value||1));
       t.risk=Math.min(10,Math.max(1,+$('#m-r').value||1));
       t.size=Math.min(10,Math.max(1,+$('#m-s').value||1));
-      render();await saveTask(t);mc.innerHTML='';toast('Сохранено');
+      render();await saveTask(t,prevWsjf);mc.innerHTML='';toast('Сохранено');
     };
   }
   renderModal();
@@ -655,6 +780,7 @@ $('#api-key-input').onkeydown=e=>{if(e.key==='Enter')$('#apikey-btn').click();};
 $('#send').onclick=send;
 $('#inp').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}};
 $('#inp').oninput=function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,90)+'px';};
+$('#wsjf-help-btn').onclick=openTutorial;
 $('#logout-btn').onclick=async()=>{localStorage.removeItem(KEY_STORE);await signOut(auth);};
 
 onAuthStateChanged(auth,user=>{
